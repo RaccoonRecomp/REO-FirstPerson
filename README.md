@@ -4,8 +4,7 @@ A first-person camera mod for **Resident Evil Outbreak Recompiled**, the unoffic
 (File #1, USA). It puts the camera into your character's eyes: you see the game through her eyes while you walk, run
 and aim, and you look around with the right stick.
 
-REO First Person is an original mod, written from scratch on the program's own mod host services. It is a separate mod
-from the Modern Camera and shares no code with it.
+REO First Person is an original mod, written from scratch on the program's own mod host services.
 
 - Mod id `reo-first-person`, version **1.0.0**.
 - 12 settings. The camera window and Configure show them, locked: you can see what the camera does, but not change it.
@@ -92,8 +91,8 @@ the camera, the walls and pictures of its fixed cameras and the restroom's mirro
 
 ## Conflicts
 
-It is a separate camera from the Modern Camera mod. Both drive the game's camera, so the Mods tab reports a conflict
-when both are on: choose one (the one later in the load order stays active).
+It drives the game's camera, so only one camera mod can be on at a time: if another camera mod is switched on too, the
+Mods tab reports a conflict; choose one (the one later in the load order stays active).
 
 ## Settings
 
