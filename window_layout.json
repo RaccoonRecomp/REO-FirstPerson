@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "mod": "reo-first-person",
+  "version": "1.0.0",
+  "credit": "REO First Person 1.0.0 by RaccoonRecomp",
+  "locked": true,
+  "tabs": [
+    {
+      "tab": "Header",
+      "advanced": false,
+      "groups": [
+        {
+          "group": "Header",
+          "settings": [
+            {
+              "key": "enabled"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tab": "Normal View",
+      "advanced": false,
+      "groups": [
+        {
+          "group": "Position",
+          "settings": [
+            {
+              "key": "normal_forward"
+            },
+            {
+              "key": "normal_up"
+            },
+            {
+              "key": "normal_right"
+            }
+          ]
+        },
+        {
+          "group": "View",
+          "settings": [
+            {
+              "key": "normal_look"
+            },
+            {
+              "key": "normal_fov"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "tab": "Aiming View",
+      "advanced": false,
+      "groups": [
+        {
+          "group": "Position",
+          "settings": [
+            {
+              "key": "aim_forward"
+            },
+            {
+              "key": "aim_up"
+            },
+            {
+              "key": "aim_right"
+            }
+          ]
+        },
+        {
+          "group": "View",
+          "settings": [
+            {
+              "key": "aim_look"
+            },
+            {
+              "key": "aim_fov"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

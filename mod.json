@@ -1,0 +1,129 @@
+{
+  "id": "reo-first-person",
+  "name": "REO First Person",
+  "version": "1.0.0",
+  "author": "RaccoonRecomp",
+  "description": "A first-person camera for the US release (SLUS-20765 v2.00). The camera sits in your character's eyes and follows the head, locked to the eyes of the picture that is drawn (also while running, walking, turning and stopping). While you aim it stays in the eyes and is angled to line up with the gun's sights (the 45 Auto, Mark's handgun; other weapons along the aim); a shot's recoil plays in the picture and the view holds still. The right stick looks around from her eyes and the view eases back to where her eyes face when you let go (the game then sees the right stick centred and a press of it (R3) as no ad-lib: no ad-lib lines; the left stick moves her exactly as without the look). The camera's settings (each view's Forward / Back, Up / Down, Left / Right, Look Up / Down and Field of View) are shown in the camera window (F8) and under Configure, locked: you can see what the camera does, but not change it. F7 switches it off and on.\n\nIt needs the game's mod runtime and a game build with its own code sites (its patches.json: camera.freeze and the marks of the game frame, the pad mapper and the room's draw), which the program compiles in at the first preparation. It is a separate camera from the Modern Camera: use one of them at a time.",
+  "game": {
+    "id": "resident-evil-outbreak-file-1",
+    "revisions": [
+      "slus-20765-v2.00"
+    ]
+  },
+  "apiVersion": 1,
+  "conflicts": [
+    {
+      "id": "reo-modern-camera",
+      "reason": "both drive the game's camera: switch one of them off"
+    }
+  ],
+  "settings": [
+    {
+      "key": "enabled",
+      "type": "boolean",
+      "default": true,
+      "label": "First Person",
+      "description": "On: the camera is in your character's eyes. Off: the game's own camera, exactly as without the mod."
+    },
+    {
+      "key": "switch_view_button",
+      "type": "choice",
+      "default": "key:0x76",
+      "choices": [
+        "key:0x76"
+      ],
+      "label": "On / Off Key",
+      "description": "F7 switches First Person off and on again while playing."
+    },
+    {
+      "key": "normal_forward",
+      "type": "number",
+      "default": 0.0,
+      "min": -25,
+      "max": 25,
+      "label": "Normal View: Forward / Back",
+      "description": "While you walk and stand. Moves the camera forward (+) or back (-), in game units (about 1 cm each). 0 = the eye spot (8 units in front of the eyes, measured for each character)."
+    },
+    {
+      "key": "normal_up",
+      "type": "number",
+      "default": 0.0,
+      "min": -25,
+      "max": 25,
+      "label": "Normal View: Up / Down",
+      "description": "While you walk and stand. Moves the camera up (+) or down (-), in game units (about 1 cm each). 0 = the eye spot (8 units in front of the eyes, measured for each character)."
+    },
+    {
+      "key": "normal_right",
+      "type": "number",
+      "default": -4.0,
+      "min": -25,
+      "max": 25,
+      "label": "Normal View: Left / Right",
+      "description": "While you walk and stand. Moves the camera to her right (+) or left (-), in game units (about 1 cm each). 0 = the eye spot (8 units in front of the eyes, measured for each character)."
+    },
+    {
+      "key": "normal_look",
+      "type": "number",
+      "default": 0.0,
+      "min": -25,
+      "max": 25,
+      "label": "Normal View: Look Up / Down",
+      "description": "While you walk and stand. Turns the view up (+) or down (-), in degrees. 0 = level ahead (the head's view at rest)."
+    },
+    {
+      "key": "normal_fov",
+      "type": "number",
+      "default": 63.0,
+      "min": 40,
+      "max": 90,
+      "label": "Normal View: Field of View",
+      "description": "While you walk and stand. The vertical field of view, in degrees. Starts at 63."
+    },
+    {
+      "key": "aim_forward",
+      "type": "number",
+      "default": 2.5,
+      "min": -25,
+      "max": 25,
+      "label": "Aiming View: Forward / Back",
+      "description": "While you aim. Moves the camera forward (+) or back (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view is angled from there to line up with the gun's sights."
+    },
+    {
+      "key": "aim_up",
+      "type": "number",
+      "default": 3.5,
+      "min": -25,
+      "max": 25,
+      "label": "Aiming View: Up / Down",
+      "description": "While you aim. Moves the camera up (+) or down (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view is angled from there to line up with the gun's sights."
+    },
+    {
+      "key": "aim_right",
+      "type": "number",
+      "default": -1.0,
+      "min": -25,
+      "max": 25,
+      "label": "Aiming View: Left / Right",
+      "description": "While you aim. Moves the camera to her right (+) or left (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view is angled from there to line up with the gun's sights."
+    },
+    {
+      "key": "aim_look",
+      "type": "number",
+      "default": 0.0,
+      "min": -25,
+      "max": 25,
+      "label": "Aiming View: Look Up / Down",
+      "description": "While you aim. Turns the view up (+) or down (-), in degrees. 0 = lined up with the gun's sights."
+    },
+    {
+      "key": "aim_fov",
+      "type": "number",
+      "default": 61.0,
+      "min": 40,
+      "max": 90,
+      "label": "Aiming View: Field of View",
+      "description": "While you aim. The vertical field of view, in degrees. Starts at 61."
+    }
+  ]
+}

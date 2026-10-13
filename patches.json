@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 1,
+  "profile": "features",
+  "note": "REO First Person's code sites on Resident Evil Outbreak (NTSC-U) SLUS-20765 v2.00: camera.freeze (the game's camera handlers stop writing the camera while the camera is in her eyes), the game frame (recomp_on_play_main), the pad mapper (recomp_on_pad_map: while the right stick turns the view, the left stick's direction the game reads is turned back, so she walks as without the look) and the room's draw loop (recomp_on_room_draw: J's Bar's restroom mirrors). The program compiles them into the game at the first preparation; every original instruction is given as its xxh64 hash only, the words are read from your own disc and checked. 'option' names the mod setting that switches the feature.",
+  "images": {
+    "exe": "sha256:06bd5fd7243144cd30cdd0c0023763a369738cb91b177b35e85f6a4782b4ca46",
+    "game.bin": "xxh64:1b4bcbcfd81bd910",
+    "submain.bin": "xxh64:0203c44ed7180d75"
+  },
+  "features": [
+    {
+      "name": "camera.freeze",
+      "title": "First Person: the game's camera held",
+      "group": "First Person",
+      "description": "The game's camera handlers stop writing the camera (eye, target, FOV, roll) while the camera is in her eyes; First Person writes it every frame."
+    }
+  ],
+  "sites": [
+    {
+      "id": "camera.freeze.h1",
+      "image": "game.bin",
+      "pc": "0x005BF06C",
+      "kind": "callIf",
+      "when": "camera.freeze",
+      "original": "xxh64:31bdb25421c6cbdf",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.init",
+      "image": "game.bin",
+      "pc": "0x005BF7E8",
+      "kind": "callIf",
+      "when": "camera.freeze",
+      "original": "xxh64:55869da79565e98a",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.eyeX",
+      "image": "game.bin",
+      "pc": "0x005BF97C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:af0414a863be77b3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.eyeY",
+      "image": "game.bin",
+      "pc": "0x005BF990",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:f072985c65eb91f3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.eyeZ",
+      "image": "game.bin",
+      "pc": "0x005BF9A0",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ce356e6b709071ae",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.roll1",
+      "image": "game.bin",
+      "pc": "0x005BF9F4",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:a214848538ebb208",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.roll2",
+      "image": "game.bin",
+      "pc": "0x005BF9F8",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:089f597ebea11254",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.fov1",
+      "image": "game.bin",
+      "pc": "0x005BFA2C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:c147c6c7257d7b96",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.fov2",
+      "image": "game.bin",
+      "pc": "0x005BFA30",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:c147c6c7257d7b96",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.tgtX",
+      "image": "game.bin",
+      "pc": "0x005BFAB8",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:4dd116ab2cc2b5ea",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.tgtZ",
+      "image": "game.bin",
+      "pc": "0x005BFAC4",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:d21bd4f31c03b23f",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h2.tgtY",
+      "image": "game.bin",
+      "pc": "0x005BFAD4",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ded449a3c25afd2b",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.init",
+      "image": "game.bin",
+      "pc": "0x005BF348",
+      "kind": "callIf",
+      "when": "camera.freeze",
+      "original": "xxh64:55869da79565e98a",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.00",
+      "image": "game.bin",
+      "pc": "0x005BF4B8",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:af0414a863be77b3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.01",
+      "image": "game.bin",
+      "pc": "0x005BF4C8",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:f072985c65eb91f3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.02",
+      "image": "game.bin",
+      "pc": "0x005BF4D8",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ce356e6b709071ae",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.03",
+      "image": "game.bin",
+      "pc": "0x005BF52C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:d138a872dae96181",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.04",
+      "image": "game.bin",
+      "pc": "0x005BF530",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:c8e6a5ec77e054f9",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.05",
+      "image": "game.bin",
+      "pc": "0x005BF564",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:c147c6c7257d7b96",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.06",
+      "image": "game.bin",
+      "pc": "0x005BF56C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:c147c6c7257d7b96",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.07",
+      "image": "game.bin",
+      "pc": "0x005BF57C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:af0414a863be77b3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.08",
+      "image": "game.bin",
+      "pc": "0x005BF58C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:f072985c65eb91f3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.09",
+      "image": "game.bin",
+      "pc": "0x005BF59C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ce356e6b709071ae",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.10",
+      "image": "game.bin",
+      "pc": "0x005BF5A8",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:d138a872dae96181",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.11",
+      "image": "game.bin",
+      "pc": "0x005BF5B4",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:c147c6c7257d7b96",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.12",
+      "image": "game.bin",
+      "pc": "0x005BF610",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:4dd116ab2cc2b5ea",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.13",
+      "image": "game.bin",
+      "pc": "0x005BF620",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:d21bd4f31c03b23f",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.14",
+      "image": "game.bin",
+      "pc": "0x005BF630",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:fbc2c896de846e76",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.15",
+      "image": "game.bin",
+      "pc": "0x005BF638",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:d21bd4f31c03b23f",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.16",
+      "image": "game.bin",
+      "pc": "0x005BF648",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ded449a3c25afd2b",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.17",
+      "image": "game.bin",
+      "pc": "0x005BF660",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:fbc2c896de846e76",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.18",
+      "image": "game.bin",
+      "pc": "0x005BF66C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:82052013f1f84f38",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.19",
+      "image": "game.bin",
+      "pc": "0x005BF680",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ded449a3c25afd2b",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.20",
+      "image": "game.bin",
+      "pc": "0x005BF6B0",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:8d5daf2fe3b60ad4",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.21",
+      "image": "game.bin",
+      "pc": "0x005BF6BC",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ded449a3c25afd2b",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.22",
+      "image": "game.bin",
+      "pc": "0x005BF6C8",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:d21bd4f31c03b23f",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.23",
+      "image": "game.bin",
+      "pc": "0x005BF730",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:af0414a863be77b3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.24",
+      "image": "game.bin",
+      "pc": "0x005BF73C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:f072985c65eb91f3",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.25",
+      "image": "game.bin",
+      "pc": "0x005BF74C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ce356e6b709071ae",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.26",
+      "image": "game.bin",
+      "pc": "0x005BF75C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:4dd116ab2cc2b5ea",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.27",
+      "image": "game.bin",
+      "pc": "0x005BF76C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:ded449a3c25afd2b",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.h3.28",
+      "image": "game.bin",
+      "pc": "0x005BF77C",
+      "kind": "subst",
+      "when": "camera.freeze",
+      "original": "xxh64:d21bd4f31c03b23f",
+      "replacement": "0x00000000",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.follow",
+      "image": "game.bin",
+      "pc": "0x005D9960",
+      "kind": "returnIf",
+      "when": "camera.freeze",
+      "original": "xxh64:08a7ead0d8be1c27",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.freeze.followEye",
+      "image": "game.bin",
+      "pc": "0x005D9AC0",
+      "kind": "callIf",
+      "when": "camera.freeze",
+      "original": "xxh64:cc8f19ea8f98f7d6",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.gameFrame",
+      "image": "exe",
+      "pc": "0x0019F6C0",
+      "kind": "mark",
+      "hook": "game.frame",
+      "original": "xxh64:ea6496768392034d",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.padMap",
+      "image": "exe",
+      "pc": "0x001B0C5C",
+      "kind": "mark",
+      "hook": "camera.padMap",
+      "original": "xxh64:946f1b69f9d98439",
+      "option": "enabled"
+    },
+    {
+      "id": "camera.roomDraw",
+      "image": "submain.bin",
+      "pc": "0x00372284",
+      "kind": "mark",
+      "hook": "camera.roomDraw",
+      "original": "xxh64:4cf78759c8410714",
+      "option": "enabled"
+    }
+  ]
+}
