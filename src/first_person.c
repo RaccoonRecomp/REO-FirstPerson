@@ -1,14 +1,16 @@
-// REO First Person 1.0.0 - the first-person camera for Resident Evil Outbreak (USA, SLUS-20765 v2.00) on the
+// REO First Person 2.6.8 - the first-person camera for Resident Evil Outbreak (USA, SLUS-20765 v2.00) on the
 // program's mod runtime. An original mod:
 // written from scratch on the program's own host services.
 //
 // At every game frame (the runtime's recomp_on_play_main) it puts the game's camera into the local player's eyes:
 //   - normal view: the head bone's world matrix applied to a fixed point per character, 8 units in front of the eyes
-//     (measured); the view follows the head bone, levelled by each character's measured rest pitch;
-//   - aiming view: from the same eye spot, angled so it lines up with the gun's sights (the eye -> the rear sight ->
-//     the front sight: the right hand's weapon node and the weapon's measured sight spot); while a shot's recoil or a
-//     gesture moves the gun off the line, the view keeps the line it had (no step aside): the gun kicks in the picture
-//     as the game animates it. A weapon whose sights were not measured is aimed along her aim;
+//     (measured), looking where the right stick points the view;
+//   - aiming view: it looks along her aim, where her shots go (her facing, tilted with the gun's elevation), so a shot
+//     hits the middle of the picture; with a gun whose sights were measured the camera spot is moved onto the gun's
+//     sight line (the line through the rear sight along her aim: the right hand's weapon node and the weapon's
+//     measured sight spot), so the sights line up in the middle too; while a shot's recoil or a gesture moves the gun
+//     off the line, the camera keeps the spot it had (no step aside): the gun kicks in the picture as the game animates
+//     it. With any other weapon the camera stays at the eye spot;
 //   - live tuning: each view's Forward / Back, Up / Down, Left / Right (game units, in the head's levelled axes), Look
 //     Up / Down (degrees) and Field of View are the mod's settings, read at every frame (the Mods tab's Configure, or
 //     the camera window: F8). With every offset at 0 the camera is at the eye spot above; the defaults are the owner's
@@ -18,13 +20,29 @@
 //     is carried on by its own motion of the last frame (the body's step, the run's bob, a turn) and the camera is put
 //     into the eyes where they will be drawn; without this the camera trailed the eyes by her step (10.5 units when
 //     running: inside the face);
-//   - the right stick (the camera input service's look stick) turns the normal view from the eyes, left / right and
-//     up / down; let go, the view eases back to where her eyes face. The game sees the right stick centred while the
-//     camera is in her eyes, and a press of its click (R3) is taken out of the game's new presses (recomp_on_pad_map):
-//     both are Outbreak's ad-lib control. The game walks her by the left stick's direction from its camera's (the
-//     camera block's look-at minus its eye, in its steps of 16 of 65536 a turn); so while the view is turned, the left
-//     stick's direction the game reads is turned back by exactly the steps between the turned camera and the camera
-//     without the look (recomp_on_pad_map), and she walks as she does without the look.
+//   - always at her head: the eye spot is laid out from her head joint in the view's direction (where her eyes are
+//     when she turns her head to where you look), so walking sideways or back, turned round by the game or in a hit
+//     or a grab it stays at her head, looking out of it where you look (never a spot turned about her feet);
+//     no jump of its own: the pad mapper turns her at most FP_TURN_STEP a frame, as the mark planned it, so her head
+//     is carried on into the drawn frame by her turn about her feet as well as her feet's step (never further than she
+//     goes); a turn nobody foresaw (the game's: a hit, a grab) is taken out and eased (FP_EYE_EASE), and it keeps its
+//     spot through the game's quick turn (her own turn);
+//   - the right stick (the camera input service's look stick) is the only control of the view: left / right turns it
+//     freely and she turns with it (her heading, as the game keeps it, is the view's while she stands), so she always
+//     faces where you look; up / down looks up and down. Nothing eases back. The game sees the right stick centred
+//     while the camera is in her eyes, and a press of its click (R3) is taken out of the game's new presses
+//     (recomp_on_pad_map): both are Outbreak's ad-lib control;
+//   - the left stick only walks, relative to the view: the game walks her by the left stick's direction from its
+//     camera's (the camera block's look-at minus its eye), and the camera block looks where you look, so up walks
+//     forward, left / right that way and down back (her own step back while she walks: she keeps facing the view).
+//     At the pad mapper (recomp_on_pad_map) her heading is turned toward the direction the game walks her in (at most
+//     FP_TURN_STEP a frame), and the game is given her heading as the stick's direction, so she goes the way she faces;
+//     walking never turns the view. Wherever she faces, the camera is at her head, looking where you look;
+//   - nothing else turns the view: when the game turns her itself (a door, an item, the d-pad, its quick turn, a hit,
+//     a grab) the view stays where the right stick points it, and she faces it again when she stands. A new room
+//     starts with the view where she faces;
+//   - while she aims, the view is the aiming view (below) and the right stick turns her aim with it; raising the
+//     weapon, she faces where you look; lowering it (or a hit that ends her aim), the view looks on where she aimed.
 // It holds the game's own camera writes off with the camera.freeze feature of the game build, keeps characters right
 // in front of the camera drawn while it drives, keeps the room's walls and pictures drawn that a fixed camera leaves
 // out, lets J's Bar's restroom mirrors show the room reflected (recomp_on_room_draw), shows a crosshair dot while
@@ -38,31 +56,49 @@
 #define CAM_AT 0x00324144       // f32 x, y, z: the point it looks at
 #define CAM_FOV 0x00324180      // f32: vertical field of view, degrees
 #define VBLANK_COUNT 0x003243F4 // u32: the game's vblank counter
+#define ROOM_NOW 0x003243DC     // u32: the room she is in (changes during a door's loading screen)
 #define CHAR_BASE 0x004A5C30    // character records, 0x10E0 bytes each; record 0 = the local player offline
 #define REC_ALIVE 0x000         // u8 != 0: the record is in use
-#define REC_STANCE 0x008        // u8: 1 normal, 2 weapon raised, 3 hit while aiming
+#define REC_STANCE 0x008        // u8: 1 normal, 2 weapon raised, 3 hit (weapon raised or down)
 #define REC_AIMSTATE 0x009      // u8 while the weapon is raised: 0 raising, 1 ready, 2 firing
 #define REC_ACTION 0x00A        // u8: her current action (0x0B aiming, 0x15 firing)
 #define ACTION_AIM 0x0B
+#define ACTION_STAND 0x0B       // (with her weapon down: she stands)
+#define KIND_BACK_FIRST 0x09    // her action's kind (+0x009, her weapon down): a step back
+#define KIND_BACK_LAST 0x0B
+#define REC_AUTOAIM_LEFT 0x00C  // u16 while she raises her weapon: the frames the game's auto-aim still turns her
+#define REC_AUTOAIM_STEP 0xC4E  // s16: its turn in each of them (65536 a turn, + = to her left)
 #define REC_ID 0x030            // low byte: 0 Kevin, 1 Mark, 2 Jim, 3 George, 4 David, 5 Alyssa, 6 Yoko, 7 Cindy
 #define REC_MODEL 0x034         // -> model; *(model) -> the skeleton's node pointer table
 #define REC_POS 0x038           // f32 x, y, z: her feet
 #define REC_FWD_X 0x070         // her model matrix's forward row, x
 #define REC_FWD_Z 0x078         //                                 z
+#define REC_HEADING 0x092       // s16: her heading, 65536 per turn (the facing row's atan2(x, z); + = to her left)
 #define REC_AIM 0xBC8           // s16: the gun's elevation, 65536 per turn, + = up
 #define REC_WEAPON 0xC7C        // u8: the item id of the equipped weapon (0 = none)
 // Her walking input (game.bin): with the left stick pushed (magnitude 16 or more) the game takes the camera's yaw - the
 // camera block's look-at minus its eye, atan2(x, z) in 65536ths of a turn, truncated - and the stick's direction, each
-// in steps of 16, adds them and turns / walks her toward that. In some of her actions (REC_PAD_ACTION 0x1A, 0x27, 0x31,
-// 0x80, 0xB0; 0x41 with REC_PAD_MODE 1) the stick is read as the d-pad's four directions instead, without the camera.
+// in steps of 16, adds them and turns / walks her toward that (measured: turning on the spot first when it lies well to
+// her side; with it behind her she steps back, keeping her facing, where there is room, else she turns round; with the
+// dash held she turns round and runs). In some of her actions (REC_PAD_ACTION 0x1A, 0x27, 0x31, 0x80, 0xB0; 0x41 with
+// REC_PAD_MODE 1) the stick is read as the d-pad's four directions instead, without the camera.
 #define REC_PAD_ACTION 0x54F    // u8: her action as the walking input reads it
 #define REC_PAD_MODE 0xB98      // u8
-#define REC_HOLD_ANGLE 0xFA8    // s16: the stick's direction when the game changed its fixed camera (held while the
-#define REC_HOLD_ON 0xFAA       // u8:  stick stays within 10 degrees of it: she walks on as before the cut)
 // The mapped pad record (the pad mapper's $a2 is the address of its held word): the left stick's magnitude and direction
 // (s16 each), which the mapper copies into her record.
 #define PAD_LSTICK_MAG 0x18
 #define PAD_LSTICK_DIR 0x1A
+// The mapped record's held word at the mark has the buttons as the pad gives them (Square 0x100, Cross 0x10, Circle
+// 0x20); the mapper then maps the three onto the player's control type's actions through a table (a row of three action
+// words per control type, Square / Cross / Circle), one of them the dash (run, 0x10).
+#define CONTROL_TYPE 0x003243EC // u8: the player's control type
+#define CONTROL_TABLE 0x002343C0
+#define ACTION_DASH 0x10u
+// A push of the left stick within this of the view's forward (65536ths of a turn: 101.25 degrees), or any push with
+// the dash, sets her off that way (turning her at most FP_TURN_STEP a frame); further back without the dash she keeps
+// facing the view while she stands or steps back (the game steps her back, or turns her round itself where there is
+// no room).
+#define FP_PAD_FRONT 0x4800
 // The game's system pad (the pad of port 1, worked out at every frame before the pad mapper): the buttons newly pressed
 // in this frame. Outbreak's ad-lib (game.bin) starts a line when this word has the right stick's click (R3: a line of
 // kind 8) or one of the right stick's four directions (bits 0x00F00000).
@@ -111,8 +147,9 @@ static const FpEyes kEyes[8] = {
 
 // ---- The sights: the spot just behind each weapon's rear sight (measured, the weapon node's axes, game units) ------
 // x along the weapon node's X axis (the barrel points along -X), y along Y, z along Z (up on the gun). The aiming view
-// looks from the eye along the sight line: through this spot, parallel to the barrel. A weapon without an entry is
-// aimed along her aim (her facing, tilted with the gun's elevation).
+// looks along her aim from the sight line: the line through this spot along her aim (the barrel points along her aim
+// within about 1.5 degrees, measured with Kevin's 45 Auto; her shots go along her aim). A weapon without an entry is
+// aimed along her aim from the eye spot.
 typedef struct {
     u32 item;
     f32 x, y, z;
@@ -122,9 +159,6 @@ static const FpSight kSights[] = {
     {0x52, 2.0f, -1.7f, 9.0f},  // Handgun for Mark (9mm)
 };
 #define FP_SIGHTS ((u32)(sizeof(kSights) / sizeof(kSights[0])))
-// The point of the sight line the aiming view looks at: this far ahead of the rear-sight spot along the barrel, about
-// a handgun's front sight (an estimate: any point of the line keeps the screen's centre on the sight line).
-#define FP_FRONT_SIGHT 15.0f
 
 // ---- The live tuning settings (mod.json): per view Forward / Back, Up / Down, Left / Right, Look Up / Down, FOV ---
 typedef struct {
@@ -158,23 +192,59 @@ static const FpTune kTuneDefaults[2] = {
 #define FP_PREDICT_GROW 6.0f      // game units per frame (her position; running is 10.5 a frame)
 #define FP_PREDICT_GROW_AXIS 0.1f // the head's axes (unit length about 1: 0.1 is about 6 degrees a frame)
 #define FP_PREDICT_JUMP 40.0f
+#define FP_CARRY_MAX 11.0f        // her feet's step is carried on at most at her run's (10.5; changing her way while
+                                  // running, the game steps her 14 - 18 units once)
+// The normal view's spot stays at her head and never jumps on its own. Her head is ahead of her feet (5 - 25 units
+// walking, standing, running, setting off; 36 bent forward), so every turn of her body about her feet swings it round
+// them: the camera follows that swing as her head's own motion where the turn is known before the frame is drawn - the
+// pad mapper's turn of her, which the mark plans (below), and the game's own steady turn (no more than FP_GAME_TURN a
+// frame, carried on). A turn nobody foresaw (the game's: a hit, a grab, its own turns; the pad mapper's few degrees
+// toward a new push of the stick) is taken out (the camera moves as her feet that frame) and the camera eases onto her
+// head again (FP_EYE_EASE of the distance a frame, FP_EYE_EASE_MIN .. FP_EYE_EASE_MAX units), never more than
+// FP_EASE_REACH off her head (a longer swing - a grab spinning her round, crouched - is followed at once beyond that)
+// and never with her head coming in front of the lens (FP_HEAD_CLEAR: the camera is never nearer her head joint than
+// this along the view; the eye spot is about 16 units in front of it, her face about 12).
+#define FP_EYE_EASE 0.5f
+#define FP_EYE_EASE_MIN 1.5f
+#define FP_EYE_EASE_MAX 6.0f
+#define FP_HEAD_CLEAR 14.0f
+#define FP_EASE_REACH 20.0f
+#define FP_GAME_TURN 2731        // 15 degrees a frame (the game's turn while she walks is 8)
+#define FP_TURN_UNSEEN 364       // 2 degrees: a turn this much off the one foreseen is taken out
+// The pad mapper's turns of her (to the view as she stands, to the way the left stick walks her) are at most
+// FP_TURN_STEP a frame (a turn round 0.2 s), so her head never jumps round her feet (running, 30 degrees swing it 8
+// units; at once, a turn round threw it 30 - 50 units, into the camera's place). The mark plans each frame's turn from
+// the stick as it was in the frame before (the pad mapper then turns her so), so the camera is at her head as it is
+// drawn (bent far forward, her head ahead of her feet by more than about 19 units, at most FP_TURN_SWING of her head's
+// swing a frame); a new push of the stick turns her at most FP_TURN_ASIDE off that plan in its first frame (her head
+// swings at most about 4 units then). While it turns her toward the stick, the game's walking input is given her
+// heading as the stick's direction, so it walks her the way she faces (as it did when she was turned at once).
+#define FP_TURN_STEP 5461        // 30 degrees (65536 a turn)
+#define FP_TURN_ASIDE 1456       // 8 degrees
+#define FP_TURN_SWING 10.0f      // and never a turn that swings her head more than this a frame (bent far forward)
+#define FP_YAW_PER_RADIAN 10430.378f
+#define FP_KIND_QUICK_TURN 0x15 // her action's kind (+0x009, her weapon down) in the game's quick turn
+#define FP_QUICK_BACK_COS 0.9396926f // after it, she faces the view again within 20 degrees
 #define FP_RESUME_DIST2 (30.0f * 30.0f)
-// The right stick's look (the normal view; the program's dead zone is applied by the camera input service): the Modern
-// Camera's default speeds at full push, and its default ease back (Recenter Speed 1.2 s: the look falls to e^-t/1.2).
-// The limits keep her own head out of the picture: the camera is just in front of her eyes, so a view turned further
-// (measured, Yoko and Kevin, 4:3 and 16:9) shows her cheek and brow at the picture's edge (90 left / right, or 60 with
-// more than 30 up); looking down shows her own body.
+// A door into another room (ROOM_NOW changes during its loading screen): the view starts from her heading where the
+// game places her there (her head jumps there, FP_PREDICT_JUMP), once; it is the right stick's again from then on.
+#define FP_ROOM_LOADING 1       // the room changed, she is not placed yet
+#define FP_ROOM_PLACED 2        // placed (the view started from her heading), not yet yours
+// The right stick's look (the program's dead zone is applied by the camera input service), at full push: left / right
+// turns the view and her with it, up / down tilts the view within the limits (looking further up showed her brow at the
+// picture's edge, measured with Yoko and Kevin; looking down shows her own body). Nothing eases back.
 #define FP_STICK_TURN 140.0f        // degrees a second, left / right
 #define FP_STICK_TILT 90.0f         // degrees a second, up / down
-#define FP_STICK_TURN_MAX 60.0f     // degrees left / right of where her eyes face
 #define FP_STICK_UP_MAX 30.0f       // degrees up
 #define FP_STICK_DOWN_MAX 60.0f     // degrees down
-#define FP_STICK_RETURN 1.2f        // seconds
-#define FP_STICK_DONE 0.01f         // degrees: the look is back (both under this: exactly where her eyes face)
 #define FP_VBLANK_SECONDS (1.0f / 59.94f)
-// The turned camera's yaw is kept at least this far (65536ths of a turn: 0.0027 degrees) inside one of the game's steps
-// of 16, so the step the game takes for it is certain (its own float maths differ from these by far less).
-#define FP_YAW_MARGIN 0.5f
+#define FP_YAW_UNITS 182.04445f     // the game's yaw units (65536 a turn) per degree
+// While she aims, a turn of hers the game makes itself is carried on into the drawn frame: its auto-aim as she raises
+// the weapon exactly (its turn per frame while it counts down: REC_AUTOAIM_*), any other when it is no faster than
+// this (6 degrees a frame, in the game's units: its aim controls turn her 4); a faster one is followed a frame late, so
+// the view never swings past where she stops.
+#define FP_AIM_CARRY 1092
+#define FP_AUTOAIM_MAX 8192     // (an auto-aim step larger than 45 degrees a frame is not one)
 
 // ---- EE RAM: aligned words only (the runtime's guest access) --------------------------------------------------------
 static inline u32 rd32(u32 a) {
@@ -294,20 +364,44 @@ static V3 look_up(V3 d, f32 degrees) {
     f32 a = degrees * 0.017453293f;
     return degrees == 0.0f ? d : tilt(d, fp_cos(a), fp_sin(a));
 }
-// A direction turned to its right (+) or left (-) by degrees (|degrees| <= 90), around the vertical (her right of a
-// facing (x, z) is (-z, x)).
-static V3 look_right(V3 d, f32 degrees) {
-    f32 a = degrees * 0.017453293f, c, sn;
-    if (degrees == 0.0f) {
-        return d;
+// A yaw in the game's units (65536 a turn) into 0 .. 65536, and the signed difference a - b (-32768 .. 32768).
+static f32 yaw_wrap(f32 a) {
+    while (a >= 65536.0f) {
+        a -= 65536.0f;
     }
-    c = fp_cos(a);
-    sn = fp_sin(a);
-    return v3(d.x * c - d.z * sn, d.y, d.z * c + d.x * sn);
+    while (a < 0.0f) {
+        a += 65536.0f;
+    }
+    return a;
 }
-// e^-x for 0 <= x <= 0.2 (the look's ease back over at most 8 vblanks).
-static f32 fp_decay(f32 x) {
-    return 1.0f - x * (1.0f - x / 2.0f * (1.0f - x / 3.0f * (1.0f - x / 4.0f)));
+static s32 yaw_diff(u32 a, u32 b) {
+    return (s32)(s16)(u16)((a - b) & 0xFFFFu);
+}
+// sin and cos of a yaw in the game's units, any value (the quarter turn nearest it, then the series).
+static void yaw_sincos(f32 yaw, f32* sn, f32* cs) {
+    f32 a = yaw_wrap(yaw), r, s0, c0;
+    u32 q = (u32)((a + 8192.0f) / 16384.0f);
+    r = (a - (f32)q * 16384.0f) * (6.2831853f / 65536.0f);
+    s0 = fp_sin(r);
+    c0 = fp_cos(r);
+    switch (q & 3u) {
+    case 0: *sn = s0; *cs = c0; break;
+    case 1: *sn = c0; *cs = -s0; break;
+    case 2: *sn = -s0; *cs = -c0; break;
+    default: *sn = -c0; *cs = s0; break;
+    }
+}
+// A vector turned about the vertical by a yaw in the game's units (+ = to her left, as her heading turns).
+static V3 turn_to(V3 d, f32 yaw) {
+    f32 sn, cs;
+    yaw_sincos(yaw, &sn, &cs);
+    return v3(d.x * cs + d.z * sn, d.y, d.z * cs - d.x * sn);
+}
+// A heading turned toward another by at most a step (65536 a turn).
+static u32 turn_toward(u32 from, u32 to, s32 step) {
+    s32 d = yaw_diff(to, from);
+    d = d > step ? step : (d < -step ? -step : d);
+    return (u32)((s32)from + d) & 0xFFFFu;
 }
 // atan2(y, x) in doubles (to about 1e-15): the series of atan for |t| <= tan(15 degrees), atan(t) = 30 degrees +
 // atan((t sqrt(3) - 1) / (t + sqrt(3))) above it, and the octants.
@@ -336,12 +430,10 @@ static double fp_atan2(double y, double x) {
     }
     return y < 0.0 ? -a : a;
 }
-// The game's camera yaw for a camera at `eye` looking along `dir` (its look-at written FP_LOOK ahead, as frame() writes
-// it): the step of 16 of 65536 a turn the walking input takes (0 .. 4095), and where in the step it falls (0 .. 16).
-static s32 yaw_step(V3 eye, V3 dir, f32* inStep) {
-    f32 dx = (eye.x + dir.x * FP_LOOK) - eye.x, dz = (eye.z + dir.z * FP_LOOK) - eye.z;
+// The game's camera yaw for the camera block's look-at minus its eye (dx, dz): the step of 16 of 65536 a turn the
+// walking input takes (0 .. 4095).
+static s32 yaw_step(f32 dx, f32 dz) {
     double deg, u;
-    s32 step;
     if (dx == 0.0f) {
         dx = 1e-4f;  // (as the game does)
     }
@@ -350,9 +442,7 @@ static s32 yaw_step(V3 eye, V3 dir, f32* inStep) {
         deg += 360.0;
     }
     u = deg * (double)GAME_UNITS;
-    step = (s32)(u / GAME_YAW_STEP);
-    *inStep = (f32)(u - GAME_YAW_STEP * (double)step);
-    return step & 0xFFF;
+    return (s32)(u / GAME_YAW_STEP) & 0xFFF;
 }
 // A point / direction given in her frame (forward, right, up) in the world, and back.
 static V3 from_local(V3 origin, V3 fwd, V3 right, V3 l) {
@@ -445,7 +535,8 @@ typedef struct {
 } FpTrack;
 
 // The value as it will be when the next frame is drawn: now plus its change of the last frame; a change that grew by
-// more than `grow` since the frame before is carried on only at the size of the one before.
+// more than `grow` since the frame before is carried on only at the size of the one before; a change longer than
+// FP_PREDICT_JUMP (longer than any step of hers) is not carried on, nor is it the one before for the next frame.
 static V3 track(FpTrack* t, V3 now, f32 grow) {
     V3 d;
     f32 n1, n0;
@@ -460,6 +551,10 @@ static V3 track(FpTrack* t, V3 now, f32 grow) {
     n0 = fp_sqrt(dot(t->delta, t->delta));
     t->last = now;
     t->delta = d;
+    if (n1 > FP_PREDICT_JUMP) {
+        t->delta = v3(0.0f, 0.0f, 0.0f);
+        return now;
+    }
     if (n1 > n0 + grow) {
         d = mul(d, n0 / n1);
     }
@@ -483,12 +578,14 @@ static struct {
     V3 lastAt;
     u32 taken;
     u32 lastVbl;
-    u32 model;       // the skeleton driven (a new one = a new room or character)
+    u32 model;       // the skeleton driven (a new one = another character; a door keeps it: ROOM_NOW)
+    u32 room;        // the room at the last mark
+    u32 newRoom;     // a door took her into another room: FP_ROOM_* until she is yours again there
     f32 aimBlend;    // 0 normal view, 1 aiming view
-    f32 sightBlend;  // 0 her aim, 1 the sight line (the aiming view's direction)
-    u32 haveSight;   // the sight line was taken: its direction from the eye, in her frame
+    f32 sightBlend;  // 0 the aiming view's camera at the eye spot, 1 on the sight line
+    u32 haveSight;   // the sight line was taken: the step from the eye spot onto it, in her frame
     V3 lineLocal;
-    u32 holding;     // the gun left the line on its own (a shot, a gesture): the view keeps the last line
+    u32 holding;     // the gun left the line on its own (a shot, a gesture): the camera keeps the last step
     u32 havePrev;    // the gun's direction last frame (to see whether it is held still)
     V3 prevBarrel;
     u32 prevAim;
@@ -496,16 +593,36 @@ static struct {
     u32 haveTune;    // the tuning values last seen (logged when they change)
     FpTune tune[2];
     FpTrack trY, trZ, trT, trF;  // the head's Y / Z axes and joint, her facing: at the last mark and their change
+    u32 easing;                  // a swing of her head taken out: the camera's way back onto her head (FP_EYE_EASE)
+    V3 ease;
+    u32 quickHold;               // the game's quick turn: the normal view's spot kept by her feet
+    V3 quickSpot;
+    u32 haveOut;                 // the normal view's spot, her feet, her head joint from them and her heading, last
+    V3 lastOut;                  //   frame, her feet's step then (carried on into the drawn frame) and her turn
+    V3 lastPos;                  //   carried on into it
+    V3 lastR;
+    u32 outH;
+    V3 feetStep;
+    s32 turnNext;
+    u32 planWas;                 //   (that turn was the pad mapper's planned one)
+    u32 plan;                    // the pad mapper's turn of her in the next frame (FP_TURN_*): her heading then
+    u32 planH;
+    s32 planMost;                //   (its largest turn a frame)
+    s32 padMag;                  // the left stick as the pad mapper last saw it (magnitude, direction, the dash held)
+    u32 padDir;
+    u32 padDash;
     f32 stickX;      // the right stick this frame (0: none, or a menu of the program takes the input)
     f32 stickY;
-    f32 lookTurn;    // the right stick's look: degrees to the right (+) / left (-) of where her eyes face
-    f32 lookTilt;    //                         degrees up (+) / down (-)
     u32 padCentred;  // the game's right stick is held centred
-    u32 moveValid;   // the camera written at the last mark (moveEye / moveAt, bits) with the look in it, and how many
-    u32 moveEye[3];  // of the game's yaw units (a multiple of 16) the left stick's direction is turned back by for it
-    u32 moveAt[3];
-    u32 moveTurn;
-    u32 padTurn;     // what the pad mapper turned the left stick back by last (REC_HOLD_ANGLE follows it)
+    u32 haveView;    // the view below is set (from her heading when the camera comes into her eyes)
+    f32 viewYaw;     // where you look: the view's yaw in the game's units (65536 a turn, as her heading)
+    f32 viewPitch;   //                 degrees up (+) / down (-)
+    u32 lastH;       // her heading at the last mark
+    s32 aimTurn;     // while she aims: the right stick's turn of her aim for the pad mapper (game units)
+    s32 aimApplied;  //                 the turn the pad mapper applied in this frame
+    u32 wasRaised;   // her weapon was raised at the last mark
+    f32 aimYaw;      // while she aims: where the picture looks (yaw in the game's units, pitch in degrees), for the
+    f32 aimPitch;    //                 normal view when her aim ends
 } s;
 
 static u32 freeze(u32 on) {
@@ -539,33 +656,6 @@ static f32 stick_axis(u32 word) {
     FpWord w;
     w.u = word;
     return sane(w.f) ? clampf(w.f, -1.0f, 1.0f) : 0.0f;
-}
-
-// The left stick while the view is turned: how many of the game's yaw units (a multiple of 16) the stick's direction is
-// turned back by, so the game walks her as with the camera without the look (`plain`). The turned view's direction
-// `dir` is moved by at most FP_YAW_MARGIN + 0.25 units (0.004 degrees) to keep its yaw away from the edge of a step.
-static u32 move_turn(V3 eye, V3* dir, V3 plain) {
-    f32 in, a, c, sn;
-    s32 step = yaw_step(eye, *dir, &in), i;
-    for (i = 0; i < 3 && (in < FP_YAW_MARGIN || in > (f32)GAME_YAW_STEP - FP_YAW_MARGIN); i++) {
-        a = (in < FP_YAW_MARGIN ? FP_YAW_MARGIN + 0.25f - in : (f32)GAME_YAW_STEP - FP_YAW_MARGIN - 0.25f - in) *
-            (6.2831853f / 65536.0f);
-        c = fp_cos(a);
-        sn = fp_sin(a);
-        *dir = v3(dir->x * c + dir->z * sn, dir->y, dir->z * c - dir->x * sn);  // (its yaw atan2(x, z) grows by a)
-        step = yaw_step(eye, *dir, &in);
-    }
-    return (u32)((step - yaw_step(eye, plain, &in)) * (s32)GAME_YAW_STEP) & 0xFFFFu;
-}
-
-// What the pad mapper turns the left stick back by. The direction the game keeps when it changes its fixed camera
-// (REC_HOLD_ANGLE, taken from the turned-back stick) is moved along, so its "within 10 degrees" test compares the
-// stick's own directions, as without the look.
-static void pad_turn(u32 turn) {
-    if (turn != s.padTurn && rd8(CHAR_BASE + REC_HOLD_ON)) {
-        wr16(CHAR_BASE + REC_HOLD_ANGLE, rd16(CHAR_BASE + REC_HOLD_ANGLE) + s.padTurn - turn);
-    }
-    s.padTurn = turn;
 }
 
 // The game's walking input reads the stick by the camera (not as the d-pad's directions) in this action.
@@ -1491,8 +1581,14 @@ static void reset_view(void) {
     s.haveSight = 0;
     s.holding = 0;
     s.havePrev = 0;
-    s.lookTurn = 0.0f;
-    s.lookTilt = 0.0f;
+    s.haveOut = 0;
+    s.plan = 0;
+    s.planWas = 0;
+    s.padMag = 0;
+    s.haveView = 0;
+    s.aimTurn = 0;
+    s.aimApplied = 0;
+    s.wasRaised = 0;
 }
 
 // Everything back to the game: its camera writes, its hide radius, no crosshair, its right stick.
@@ -1506,7 +1602,6 @@ static void hand_back(u32 restoreCamera) {
     restore_artwork();
     crosshair(0);
     pad_centre(0);
-    pad_turn(0);
     s.driving = 0;
     reset_view();
 }
@@ -1581,12 +1676,37 @@ static void read_tune(FpTune* t, u32 view) {
     }
 }
 
+static u32 free_to_turn(u32 rec);
+
+// Where the pad mapper sets her heading while she is free to turn (free_to_turn): with the left stick pushed (mag, dir:
+// the mapped pad record's) in front of the view (FP_PAD_FRONT) or with the dash held (dash), the way her walking input
+// walks her by the camera's yaw step cam16 (steer: the game is to walk her the way she faces); further back without the
+// dash, the view's yaw while she stands or steps back (she keeps facing it; the game steps her back); with the stick at
+// rest, the view's yaw while she stands. 0: it leaves her heading to the game.
+static u32 pad_want(u32 rec, s32 mag, u32 dir, u32 dash, u32 cam16, u32* want, u32* steer) {
+    u32 kind = rd8(rec + REC_AIMSTATE), stand = rd8(rec + REC_ACTION) == ACTION_STAND;
+    s32 rel = (s32)(s16)dir;
+    *want = (u32)(s32)(s.viewYaw + 0.5f) & 0xFFFFu;
+    *steer = 0;
+    if (mag >= PAD_STICK_MOVE && stick_by_camera(rec)) {
+        if ((rel <= FP_PAD_FRONT && rel >= -FP_PAD_FRONT) || dash) {
+            *want = (cam16 + (dir & 0xFFF0u)) & 0xFFFFu;
+            *steer = 1;
+            return 1;
+        }
+        return stand || (kind >= KIND_BACK_FIRST && kind <= KIND_BACK_LAST);
+    }
+    return stand;
+}
+
 static void frame(void) {
-    u32 rec = CHAR_BASE, table, head, hand, id, stance, st, i, vbl, item, aimReady, raised, ride, looked;
+    u32 rec = CHAR_BASE, table, head, hand, id, stance, st, i, vbl, item, aimReady, raised, ride, h16, viewWas, room;
+    u32 jumped = 0;
     u32 input[12];
-    f32 dt, step, n, fx, fz, elev, fov, rc, rs, sec;
+    s32 gameTurn, aimCarry;
+    f32 dt, step, n, fx, fz, elev, fov, rc, rs, sec, turn, aimYaw, asn, acs;
     V3 pos, fwd, right, hy, hz, ht, hyU, hzU, fH, uH, rH, eyeSpot, headDir, aimDir, normalPos, aimPos, normalDir,
-        lineDir, aimView, camPos, camDir, fwdNow, rightNow, hyNow, hzNow, htNow, shift, aimDirNow, plainDir;
+        aimView, camPos, camDir, fwdNow, rightNow, hyNow, hzNow, htNow, shift, aimDirNow, aimFwd, aimRight;
     FpTune tn, ta;
     const FpSight* sight;
     const FpEyes* lock;
@@ -1597,7 +1717,6 @@ static void frame(void) {
         s.status = 0xFFu;
         s.lastVbl = rd32(VBLANK_COUNT);
     }
-    s.moveValid = 0;
     vbl = rd32(VBLANK_COUNT);
     dt = (f32)(vbl - s.lastVbl);
     s.lastVbl = vbl;
@@ -1662,7 +1781,7 @@ static void frame(void) {
         s.yielded = 0;
     }
     stance = rd8(rec + REC_STANCE);
-    raised = stance == 2 || stance == 3;
+    raised = stance == 2;  // (a hit, stance 3, is no aim: the game throws her about; the view stays)
 
     // The game took the camera for a scripted shot: it is the game's until she moves on her own or raises her weapon.
     if (s.yielded) {
@@ -1732,6 +1851,7 @@ static void frame(void) {
     if (s.trT.have) {
         V3 j = sub(htNow, s.trT.last);
         if (dot(j, j) > FP_PREDICT_JUMP * FP_PREDICT_JUMP) {
+            jumped = 1;
             s.trY.have = 0;
             s.trZ.have = 0;
             s.trT.have = 0;
@@ -1760,37 +1880,82 @@ static void frame(void) {
     fH = unit(sub(mul(hzU, rc), mul(hyU, rs)), headDir);
     uH = unit(add(mul(hyU, rc), mul(hzU, rs)), v3(0.0f, 1.0f, 0.0f));
     rH = unit(cross(fH, uH), right);
-    normalPos = add(eyeSpot, add(mul(fH, tn.fwd), add(mul(uH, tn.up), mul(rH, tn.right))));
     aimPos = add(eyeSpot, add(mul(fH, ta.fwd), add(mul(uH, ta.up), mul(rH, ta.right))));
-    normalDir = look_up(headDir, tn.look);
 
-    // The right stick turns the normal view from the eyes (the camera stays in them); let go, the view eases back to
-    // where her eyes face. While her weapon is raised the view is the aiming view's and the look eases back.
+    // Where you look. The view starts from her heading when the camera comes into her eyes (a new character, back from
+    // a scripted shot) and where a door into another room places her (FP_ROOM_*); then only the right stick turns it
+    // left / right and tilts it up / down: the pad mapper turns her with it while she stands (she faces where you
+    // look), the left stick's walking never turns it, and when the game turns her itself - in an action of its own (a
+    // door, an item, its quick turn, a hit, a grab) or while she stands (the d-pad) - the view stays where it is. While
+    // her weapon is raised the view is her aim's: the right stick turns her aim (at the pad mapper) and the view
+    // follows her, also when the game turns her (her aiming controls); raising it, she is turned to where you look.
+    // Lowering it, or when a hit ends her aim, the view looks on from where the picture looked while she aimed (its
+    // pitch too), whatever the game does with her.
     sec = dt * FP_VBLANK_SECONDS;
-    if (!raised && (s.stickX != 0.0f || s.stickY != 0.0f)) {
-        s.lookTurn = clampf(s.lookTurn + s.stickX * FP_STICK_TURN * sec, -FP_STICK_TURN_MAX, FP_STICK_TURN_MAX);
-        s.lookTilt = clampf(s.lookTilt + s.stickY * FP_STICK_TILT * sec, -FP_STICK_DOWN_MAX, FP_STICK_UP_MAX);
-    } else if (s.lookTurn != 0.0f || s.lookTilt != 0.0f) {
-        f32 k = fp_decay(sec / FP_STICK_RETURN);
-        s.lookTurn *= k;
-        s.lookTilt *= k;
-        if (s.lookTurn > -FP_STICK_DONE && s.lookTurn < FP_STICK_DONE && s.lookTilt > -FP_STICK_DONE &&
-            s.lookTilt < FP_STICK_DONE) {
-            s.lookTurn = 0.0f;
-            s.lookTilt = 0.0f;
-        }
+    h16 = rd16(rec + REC_HEADING);
+    turn = -s.stickX * FP_STICK_TURN * sec * FP_YAW_UNITS;  // (a push to the right turns to her right: the yaw falls)
+    viewWas = s.haveView;
+    gameTurn = yaw_diff(h16, s.lastH) - s.aimApplied;  // (her turn of the last frame the game made itself)
+    s.aimApplied = 0;
+    room = rd32(ROOM_NOW);
+    if (room != s.room) {
+        s.room = room;
+        s.newRoom = FP_ROOM_LOADING;
     }
+    if (s.newRoom && (jumped || (s.newRoom == FP_ROOM_LOADING && (raised || free_to_turn(rec))))) {
+        s.haveView = 0;  // (where the game places her in the new room: from her heading there, once)
+        s.newRoom = FP_ROOM_PLACED;
+    }
+    if (s.newRoom == FP_ROOM_PLACED && (raised || free_to_turn(rec))) {
+        s.newRoom = 0;
+    }
+    if (!s.haveView) {
+        s.haveView = 1;
+        s.viewYaw = (f32)h16;
+        s.viewPitch = 0.0f;
+    } else if (raised) {
+        if (s.wasRaised) {
+            s.viewYaw = (f32)h16;  // (her aim as the game has it)
+        }
+    } else if (s.wasRaised) {
+        s.viewYaw = s.aimYaw;
+        s.viewPitch = clampf(s.aimPitch - tn.look, -FP_STICK_DOWN_MAX, FP_STICK_UP_MAX);
+    }
+    s.viewYaw = yaw_wrap(s.viewYaw + turn);
+    if (raised) {
+        s.aimTurn = yaw_diff((u32)(s32)(s.viewYaw + 0.5f), h16);
+    } else {
+        s.aimTurn = 0;
+        s.viewPitch = clampf(s.viewPitch + s.stickY * FP_STICK_TILT * sec, -FP_STICK_DOWN_MAX, FP_STICK_UP_MAX);
+    }
+    s.lastH = h16;
+    s.wasRaised = raised;
 
-    // Her aim: her facing, tilted with the gun's elevation.
+    // Her aim: her facing as it will be drawn, tilted with the gun's elevation. Her facing: her heading now, the right
+    // stick's turn the pad mapper writes next (exact), and the game's own turn of the next frame as far as it is known
+    // (FP_AIM_CARRY: its auto-aim exactly, else its turn of the last frame when it is slow).
     aimReady = stance == 2 && rd8(rec + REC_AIMSTATE) == 1 && rd8(rec + REC_ACTION) == ACTION_AIM;
     elev = (f32)(s32)(s16)rd16(rec + REC_AIM) * (6.2831853f / 65536.0f);
     elev = clampf(elev, -1.2f, 1.2f);
-    aimDir = add(mul(fwd, fp_cos(elev)), v3(0.0f, fp_sin(elev), 0.0f));
+    aimCarry = 0;
+    if (stance == 2 && rd8(rec + REC_AIMSTATE) == 0 && rd8(rec + REC_ACTION) == ACTION_AIM &&
+        rd16(rec + REC_AUTOAIM_LEFT) != 0) {
+        aimCarry = (s32)(s16)rd16(rec + REC_AUTOAIM_STEP);  // (the game's auto-aim turns her by this next frame)
+        aimCarry = aimCarry > FP_AUTOAIM_MAX || aimCarry < -FP_AUTOAIM_MAX ? 0 : aimCarry;
+    } else if (viewWas && gameTurn <= FP_AIM_CARRY && gameTurn >= -FP_AIM_CARRY) {
+        aimCarry = gameTurn;
+    }
+    aimYaw = raised ? (f32)h16 + (f32)s.aimTurn + (f32)aimCarry : s.viewYaw;  // (aim ended: the view's, below)
+    yaw_sincos(aimYaw, &asn, &acs);
+    aimFwd = v3(asn, 0.0f, acs);
+    aimRight = v3(-acs, 0.0f, asn);
+    aimDir = add(mul(aimFwd, fp_cos(elev)), v3(0.0f, fp_sin(elev), 0.0f));
     aimDirNow = add(mul(fwdNow, fp_cos(elev)), v3(0.0f, fp_sin(elev), 0.0f));
     s.aimBlend = clampf(s.aimBlend + (raised ? step : -step), 0.0f, 1.0f);
 
-    // The sight line: through the weapon's rear-sight spot, parallel to the barrel (the weapon node's -X). The aiming
-    // view looks from its own camera spot at the line's front-sight point, so eye, rear sight and front sight line up.
+    // The sight line: through the weapon's rear-sight spot along her aim (the barrel, the weapon node's -X, points
+    // along it). The aiming view's camera spot is stepped square onto it (its place along the line kept), so from there
+    // rear sight and front sight line up in the middle of the picture, where her aim - and so her shots - go.
     // (Measured in this frame's skeleton and her facing now; kept in her frame and turned with her drawn facing.)
     item = rd8(rec + REC_WEAPON);
     sight = sight_of(item);
@@ -1809,8 +1974,8 @@ static void frame(void) {
         s.prevAim = aim16;
         s.havePrev = 1;
         if (sane3(rear) && dot(barrel, aimDirNow) > FP_STEADY_COS && (settled || aimMoving)) {
-            V3 front = add(rear, mul(barrel, FP_FRONT_SIGHT));
-            s.lineLocal = to_local(unit(sub(front, sub(aimPos, shift)), aimDirNow), fwdNow, rightNow);
+            V3 off = sub(rear, sub(aimPos, shift));
+            s.lineLocal = to_local(sub(off, mul(aimDirNow, dot(off, aimDirNow))), fwdNow, rightNow);
             if (!s.haveSight) {
                 fp_log("[fp] aiming: lined up with the sights, item", 1, (s32)item, 0);
             } else if (s.holding) {
@@ -1824,8 +1989,8 @@ static void frame(void) {
         s.havePrev = 0;
     }
     if (s.haveSight && raised && !ride && !s.holding) {
-        // A shot's recoil, a gesture, a hit: the gun leaves the line as the game animates it. The view keeps the line
-        // it had (turning with her), so the gun is seen kicking and the camera stays in the eyes.
+        // A shot's recoil, a gesture, a hit: the gun leaves the line as the game animates it. The camera keeps the
+        // step onto the line it had (turning with her), so the gun is seen kicking and the camera stays in the eyes.
         s.holding = 1;
         reo_log("[fp] aiming: the gun left the line (shot / gesture): the view holds the line");
     }
@@ -1834,28 +1999,184 @@ static void frame(void) {
         s.haveSight = 0;
         s.holding = 0;
     }
-    lineDir = s.haveSight ? unit(from_local(v3(0.0f, 0.0f, 0.0f), fwd, right, s.lineLocal), aimDir) : aimDir;
-    aimView = look_up(unit(lerp(aimDir, lineDir, s.sightBlend), aimDir), ta.look);
+    if (s.haveSight) {
+        aimPos = add(aimPos, mul(from_local(v3(0.0f, 0.0f, 0.0f), aimFwd, aimRight, s.lineLocal), s.sightBlend));
+    }
+    aimView = look_up(aimDir, ta.look);
 
-    // The normal view turned by the right stick's look (none in the aiming view: there it is exactly the sights').
-    looked = (s.lookTurn != 0.0f || s.lookTilt != 0.0f) && s.aimBlend < 1.0f;
-    plainDir = v3(0.0f, 0.0f, 1.0f);
-    if (looked) {
-        plainDir = unit(lerp(normalDir, aimView, s.aimBlend), normalDir);  // (the view without the look)
-        normalDir = look_up(look_right(normalDir, s.lookTurn), s.lookTilt);
+    // The pad mapper's turn of her in the next frame (FP_TURN_STEP toward where it sets her: the view's yaw as she
+    // stands, the way the left stick walks her by the camera written below - the stick as it was in this frame). The
+    // pad mapper turns her so (at most FP_TURN_ASIDE off it toward a new push), and the normal view below carries her
+    // head on into the drawn frame by that turn.
+    s.plan = 0;
+    if (!raised && s.haveView && free_to_turn(rec)) {
+        u32 want, steer;
+        f32 vs, vc, rh = fp_sqrt((htNow.x - pos.x) * (htNow.x - pos.x) + (htNow.z - pos.z) * (htNow.z - pos.z));
+        s32 most = FP_TURN_STEP;
+        if (rh * (f32)FP_TURN_STEP > FP_TURN_SWING * FP_YAW_PER_RADIAN) {
+            most = (s32)(FP_TURN_SWING * FP_YAW_PER_RADIAN / rh);  // (her head far ahead of her feet: bent forward)
+        }
+        yaw_sincos(s.viewYaw, &vs, &vc);
+        if (pad_want(rec, s.padMag, s.padDir, s.padDash, (u32)yaw_step(vs, vc) * 16u, &want, &steer)) {
+            s.plan = 1;
+            s.planH = turn_toward(h16, want, most);
+            s.planMost = most;
+        }
     }
 
-    // The view: normal <-> aiming in 0.2 s (position, direction and field of view).
+    // The normal view: where you look, from her eyes - at her head as it will be drawn. The eye spot with the offsets
+    // (this frame's skeleton: the head joint and the eye spot's place from it, in the head's own frame) is laid out
+    // from her head joint in the view's direction instead of her head's: the camera is where her eyes are when she
+    // turns her head to where you look. With her head facing the view it is the eye spot itself; walking sideways or
+    // back, turned round or thrown about in a hit, it stays at her head, about 16 units in front of her head joint
+    // along the view, looking out of it - never a spot turned about her feet, never at her own face, never through a
+    // wall. Her head's own turns do not move it, its steps do. Her head is carried on into the drawn frame by her
+    // feet's step of the last frame, only while she goes on that way (never the way back: it never runs ahead of her
+    // head and comes back), and by her turn about her feet in that frame as far as it is known: the pad mapper's
+    // planned turn (above), else the game's own steady turn (FP_GAME_TURN), her step turned with it. A turn nobody
+    // foresaw swings her head round her feet: that swing is taken out and the camera eases onto her head again
+    // (FP_EYE_EASE), her head never in front of the lens (FP_HEAD_CLEAR).
+    {
+        V3 hyN = unit(hyNow, v3(0.0f, 1.0f, 0.0f)), hzN = unit(hzNow, fwdNow), fN, uN, rN, spot, rel, hf, hr, vf, vr;
+        V3 head, jp, r, carry = v3(0.0f, 0.0f, 0.0f);
+        f32 sp, cp, sy, cy, vs, vc;
+        s32 turnNow, turnNext = 0;
+        u32 kind = rd8(rec + REC_AIMSTATE);
+        fN = unit(sub(mul(hzN, rc), mul(hyN, rs)), fwdNow);
+        uN = unit(add(mul(hyN, rc), mul(hzN, rs)), v3(0.0f, 1.0f, 0.0f));
+        rN = unit(cross(fN, uN), rightNow);
+        spot = add(htNow, add(mul(hyNow, lock->up), mul(hzNow, lock->forward)));
+        spot = add(spot, add(mul(fN, tn.fwd), add(mul(uN, tn.up), mul(rN, tn.right))));
+        rel = sub(spot, htNow);  // (the eye spot from her head joint)
+        hf = unit(v3(fN.x, 0.0f, fN.z), fwdNow);
+        hr = v3(-hf.z, 0.0f, hf.x);
+        yaw_sincos(s.viewYaw, &vs, &vc);
+        vf = v3(vs, 0.0f, vc);
+        vr = v3(-vc, 0.0f, vs);
+        r = sub(htNow, pos);              // (her head joint from her feet)
+        turnNow = yaw_diff(h16, s.outH);  // (her turn about her feet since the last mark)
+        if (s.haveOut) {
+            V3 d = sub(pos, s.lastPos);
+            if (dot(d, d) > FP_PREDICT_JUMP * FP_PREDICT_JUMP) {
+                s.haveOut = 0;  // (her feet placed elsewhere: a door, a new room - from her head there)
+            }
+        }
+        if (!s.haveOut) {
+            s.easing = 0;
+            s.quickHold = 0;
+            s.feetStep = v3(0.0f, 0.0f, 0.0f);
+        } else {
+            // Her feet's step: carried on as track() does (a step that grew by more than FP_PREDICT_GROW only at the
+            // size of the one before; none longer than FP_PREDICT_JUMP), and only on the way she went the frame before.
+            V3 d = sub(pos, s.lastPos), sw, sr;
+            f32 n1 = fp_sqrt(dot(d, d)), n0 = fp_sqrt(dot(s.feetStep, s.feetStep)), n;
+            u32 unseen = turnNow - s.turnNext > FP_TURN_UNSEEN || s.turnNext - turnNow > FP_TURN_UNSEEN;
+            if (n1 <= FP_PREDICT_JUMP && dot(d, s.feetStep) > 0.0f) {
+                carry = n1 > n0 + FP_PREDICT_GROW ? mul(d, n0 / n1) : d;
+                n = fp_sqrt(dot(carry, carry));
+                if (n > FP_CARRY_MAX) {
+                    carry = mul(carry, FP_CARRY_MAX / n);  // (the game's one-off long step as she changes her way)
+                }
+            }
+            s.feetStep = n1 <= FP_PREDICT_JUMP ? d : v3(0.0f, 0.0f, 0.0f);
+            if (s.easing) {
+                f32 st;
+                n = fp_sqrt(dot(s.ease, s.ease));
+                st = clampf(n * FP_EYE_EASE, FP_EYE_EASE_MIN, FP_EYE_EASE_MAX) * dt * 0.5f;
+                if (!(n > st)) {
+                    s.easing = 0;
+                    s.ease = v3(0.0f, 0.0f, 0.0f);
+                } else {
+                    s.ease = mul(s.ease, (n - st) / n);
+                }
+            }
+            // (a turn the last mark did not foresee: the swing of her head round her feet by its unforeseen part, as
+            // far as her head did go that way - not where the game turns her about her head, as in a grab - taken out)
+            sr = sub(turn_to(s.lastR, (f32)turnNow), turn_to(s.lastR, (f32)s.turnNext));
+            n = fp_sqrt(dot(sr, sr));
+            if (!s.quickHold && unseen && n > 0.5f) {
+                sw = mul(sr, clampf(dot(sub(r, turn_to(s.lastR, (f32)s.turnNext)), sr) / (n * n), 0.0f, 1.0f));
+                s.ease = s.easing ? sub(s.ease, sw) : mul(sw, -1.0f);
+                s.easing = 1;
+                n = fp_sqrt(dot(s.ease, s.ease));
+                if (n > FP_EASE_REACH) {
+                    s.ease = mul(s.ease, FP_EASE_REACH / n);
+                }
+            }
+            if (s.plan) {
+                turnNext = yaw_diff(s.planH, h16);
+            } else if (!s.planWas && turnNow <= FP_GAME_TURN && turnNow >= -FP_GAME_TURN) {
+                turnNext = turnNow;  // (the game's own steady turn, carried on)
+            }
+        }
+        s.lastR = r;
+        s.outH = h16;
+        s.turnNext = turnNext;
+        s.planWas = s.plan;
+        // Her head joint as it will be drawn, and the eye spot laid out from it along the view.
+        jp = add(pos, add(turn_to(carry, (f32)turnNext), turn_to(r, (f32)turnNext)));
+        head = add(jp, add(mul(vf, dot(rel, hf)), add(mul(vr, dot(rel, hr)), v3(0.0f, rel.y, 0.0f))));
+        // The game's quick turn (her action's kind FP_KIND_QUICK_TURN): it spins her round in its animation and only
+        // then commits her new heading. Her own turn does not move the camera: it keeps its spot by her feet through it,
+        // and while she stands on after it and the pad mapper turns her back to the view, until her eyes are back there
+        // (within FP_EYE_EASE_MAX, or she faces the view, or her head as drawn would come nearer the spot than
+        // FP_HEAD_CLEAR along the view), and goes on from there (FP_EYE_EASE) - not round to her back with her head and
+        // back.
+        if (stance == 1 && s.haveOut &&
+            (kind == FP_KIND_QUICK_TURN ||
+             (s.quickHold && kind == 0 && dot(fwdNow, vf) < FP_QUICK_BACK_COS &&
+              dot(sub(add(pos, s.quickSpot), head), sub(add(pos, s.quickSpot), head)) >
+                  FP_EYE_EASE_MAX * FP_EYE_EASE_MAX &&
+              dot(sub(add(pos, s.quickSpot), jp), vf) >= FP_HEAD_CLEAR))) {
+            if (!s.quickHold) {
+                s.quickHold = 1;
+                s.quickSpot = sub(s.lastOut, s.lastPos);
+            }
+            normalPos = add(pos, s.quickSpot);
+        } else {
+            if (s.quickHold) {
+                s.quickHold = 0;
+                s.ease = sub(add(pos, s.quickSpot), head);
+                s.easing = 1;
+            }
+            if (s.easing) {
+                // (never nearer her head joint along the view than FP_HEAD_CLEAR, nor nearer than the eye spot is)
+                f32 lo = FP_HEAD_CLEAR - dot(sub(head, jp), vf), e = dot(s.ease, vf);
+                lo = lo > 0.0f ? 0.0f : lo;
+                if (e < lo) {
+                    s.ease = add(s.ease, mul(vf, lo - e));
+                }
+                head = add(head, s.ease);
+            }
+            normalPos = head;
+        }
+        s.haveOut = 1;
+        s.lastOut = normalPos;
+        s.lastPos = pos;
+        sp = clampf(s.viewPitch + tn.look, -85.0f, 85.0f) * 0.017453293f;
+        sy = fp_sin(sp);
+        cy = fp_cos(sp);
+        yaw_sincos(s.viewYaw + (raised ? (f32)aimCarry : 0.0f), &sp, &cp);  // (raised: her aim, carried on alike)
+        normalDir = v3(cy * sp, sy, cy * cp);
+    }
+
+    // The view: normal <-> aiming in 0.2 s (position, direction and field of view). Her aim ended, the picture keeps
+    // the normal view's direction (where it looked while she aimed) and only the camera's spot goes back to the eyes.
+    if (!raised) {
+        aimView = normalDir;
+    }
     camPos = lerp(normalPos, aimPos, s.aimBlend);
     camDir = unit(lerp(normalDir, aimView, s.aimBlend), normalDir);
     fov = tn.fov + (ta.fov - tn.fov) * s.aimBlend;
 
-    if (!sane3(camPos) || !sane3(camDir) || (looked && !sane3(plainDir))) {
+    if (!sane3(camPos) || !sane3(camDir)) {
         return;  // (never write a broken camera; the last one stays)
     }
-    // With the look in the view, the left stick's direction the game reads is turned back by the steps between the
-    // turned camera's yaw and the yaw of the camera without the look (the pad mapper, recomp_on_pad_map).
-    s.moveTurn = looked ? move_turn(camPos, &camDir, plainDir) : 0u;
+    if (raised) {
+        s.aimYaw = yaw_wrap((f32)(fp_atan2((double)camDir.x, (double)camDir.z) * (32768.0 / 3.141592653589793)));
+        s.aimPitch = (f32)(fp_atan2((double)camDir.y, (double)fp_sqrt(camDir.x * camDir.x + camDir.z * camDir.z)) *
+                           (180.0 / 3.141592653589793));
+    }
     for (i = 0; i < 3; i++) {
         f32 p = i == 0 ? camPos.x : (i == 1 ? camPos.y : camPos.z);
         f32 d = i == 0 ? camDir.x : (i == 1 ? camDir.y : camDir.z);
@@ -1865,13 +2186,6 @@ static void frame(void) {
     s.lastEye = camPos;
     s.lastAt = add(camPos, mul(camDir, FP_LOOK));
     s.haveLast = 1;
-    if (s.moveTurn) {
-        for (i = 0; i < 3; i++) {
-            s.moveEye[i] = rd32(CAM_EYE + 4 * i);
-            s.moveAt[i] = rd32(CAM_AT + 4 * i);
-        }
-        s.moveValid = 1;
-    }
     wrf(CAM_FOV, fov);
 
     // Characters right in front of the camera stay drawn while it drives (her own arms and gun, a zombie up close).
@@ -1890,28 +2204,88 @@ void Fp_OnPlayMain(void) {
     frame();
 }
 
+// The button of the dash (run) in the player's control type (0: none found).
+static u32 dash_button(void) {
+    static const u32 kButtons[3] = {0x100u, 0x10u, 0x20u};
+    u32 row = CONTROL_TABLE + 12u * rd8(CONTROL_TYPE), c;
+    if (rd8(CONTROL_TYPE) >= 8) {
+        return 0;
+    }
+    for (c = 0; c < 3; c++) {
+        if (rd32(row + 4u * c) == ACTION_DASH) {
+            return kButtons[c];
+        }
+    }
+    return 0;
+}
+
+// Her action lets the player turn and walk her: she stands, walks, runs, turns or steps back (stance 1; her action's
+// kind (+0x009) none or a step of the walking input (3 walk, 4 turn, 5 walk and turn, 6 - 8 run, 9 - 0x0B step back),
+// its phase starting (1), going (2), stopping (0x0A) or standing (0x0B); the walking input's action 0 .. 3).
+static u32 free_to_turn(u32 rec) {
+    u32 kind = rd8(rec + REC_AIMSTATE), act = rd8(rec + REC_ACTION), pad = rd8(rec + REC_PAD_ACTION);
+    return rd8(rec + REC_STANCE) == 1 && kind <= 0x0B && (act == 0x0B || act == 0x0A || act == 0x01 || act == 0x02) &&
+           pad <= 3;
+}
+
 // The pad mapper (the camera.padMap mark: before it copies the mapped pad record into her record; after the game worked
-// out its system pad, before the ad-lib reads it). While the right stick is held centred, a new press of its click (R3)
-// is taken out of the system pad's new presses: it is an ad-lib line of the game too. While the view is turned and the
-// camera is still the one written at the last mark, the left stick's direction is turned back by moveTurn where the
-// game reads it by the camera; she then walks as without the look. No look, no write.
+// out its system pad, before the ad-lib reads it; right before her walking input reads the stick and the camera).
+// While the right stick is held centred, a new press of its click (R3) is taken out of the system pad's new presses:
+// it is an ad-lib line of the game too. While the camera drives, her heading is set here, as the game keeps it:
+//   - her weapon raised: turned by the right stick (raising it, to where you look);
+//   - she stands or walks (pad_want): with the left stick pushed, toward the way her walking input sends her (the
+//     camera's yaw step plus the stick's direction, each in steps of 16), and the game is given her heading as the
+//     stick's direction, so she sets off and goes the way she faces; a push backward without the dash keeps her facing
+//     the view while she stands or steps back (the game steps her back; where it turns her round instead, her turn is
+//     the game's); with the stick at rest, toward the view's yaw while she stands (as she stops after a walk, her
+//     heading stays the walk's). She turns as the mark planned it (FP_TURN_STEP a frame toward that from the stick as
+//     it was the frame before), and at most FP_TURN_ASIDE off that plan toward a new push of the stick.
+// Nothing is written in any other action, or while the camera does not drive.
 FP_EVENT(recomp_on_pad_map)
 void Fp_OnPadMap(u32 held, u32 rec) {
-    u32 turn = 0, i, same = s.driving && s.moveValid;
+    u32 h, want, stance, dir, dash, steer, live, cam16, base, to;
+    s32 mag;
     if (rec != CHAR_BASE) {
         return;
     }
     if (s.padCentred && (rd32(SYS_PAD_PRESSED) & PAD_R3)) {
         wr32(SYS_PAD_PRESSED, rd32(SYS_PAD_PRESSED) & ~PAD_R3);
     }
-    for (i = 0; i < 3 && same; i++) {
-        same = rd32(CAM_EYE + 4 * i) == s.moveEye[i] && rd32(CAM_AT + 4 * i) == s.moveAt[i];
+    if (!s.driving || !s.haveView) {
+        s.plan = 0;
+        return;
     }
-    if (same && (s32)(s16)rd16(held + PAD_LSTICK_MAG) >= PAD_STICK_MOVE && stick_by_camera(rec)) {
-        turn = s.moveTurn;
-        wr16(held + PAD_LSTICK_DIR, rd16(held + PAD_LSTICK_DIR) - turn);
+    h = rd16(rec + REC_HEADING);
+    stance = rd8(rec + REC_STANCE);
+    mag = (s32)(s16)rd16(held + PAD_LSTICK_MAG);
+    dir = rd16(held + PAD_LSTICK_DIR);
+    dash = (rd16(held) & dash_button()) != 0;
+    s.padMag = mag;  // (the stick as it is in this frame: the mark plans her turn of the next frame from it)
+    s.padDir = dir;
+    s.padDash = dash;
+    if (stance == 2 || stance == 3) {
+        if (s.aimTurn != 0) {
+            wr16(rec + REC_HEADING, h + (u32)s.aimTurn);
+        }
+        s.aimApplied = s.aimTurn;
+        s.aimTurn = 0;
+    } else if (free_to_turn(rec)) {
+        cam16 = (u32)yaw_step(rdf(CAM_AT) - rdf(CAM_EYE), rdf(CAM_AT + 8) - rdf(CAM_EYE + 8)) * 16u;
+        live = pad_want(rec, mag, dir, dash, cam16, &want, &steer);
+        base = s.plan ? s.planH : h;
+        to = turn_toward(base, live ? turn_toward(h, want, s.plan ? s.planMost : FP_TURN_STEP) : base, FP_TURN_ASIDE);
+        if (steer) {
+            // (the game walks her the way she faces: her heading, in steps of 16, as the stick's direction)
+            to = (to + 8u) & 0xFFF0u;
+            if (((cam16 + (dir & 0xFFF0u)) & 0xFFFFu) != to) {
+                wr16(held + PAD_LSTICK_DIR, (to - cam16) & 0xFFFFu);
+            }
+        }
+        if ((live || s.plan) && to != h) {
+            wr16(rec + REC_HEADING, to);
+        }
     }
-    pad_turn(turn);
+    s.plan = 0;
 }
 
 // The room's draw (the camera.roomDraw mark: the room loop, once per object group, before its objects).

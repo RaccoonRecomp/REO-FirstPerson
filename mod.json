@@ -1,9 +1,9 @@
 {
   "id": "reo-first-person",
   "name": "REO First Person",
-  "version": "1.0.0",
+  "version": "2.6.8",
   "author": "RaccoonRecomp",
-  "description": "A first-person camera for the US release (SLUS-20765 v2.00). The camera sits in your character's eyes and follows the head, locked to the eyes of the picture that is drawn (also while running, walking, turning and stopping). While you aim it stays in the eyes and is angled to line up with the gun's sights (the 45 Auto, Mark's handgun; other weapons along the aim); a shot's recoil plays in the picture and the view holds still. The right stick looks around from her eyes and the view eases back to where her eyes face when you let go (the game then sees the right stick centred and a press of it (R3) as no ad-lib: no ad-lib lines; the left stick moves her exactly as without the look). The camera's settings (each view's Forward / Back, Up / Down, Left / Right, Look Up / Down and Field of View) are shown in the camera window (F8) and under Configure, locked: you can see what the camera does, but not change it. F7 switches it off and on.\n\nIt needs the game's mod runtime and a game build with its own code sites (its patches.json: camera.freeze and the marks of the game frame, the pad mapper and the room's draw), which the program compiles in at the first preparation.",
+  "description": "A first-person camera for the US release (SLUS-20765 v2.00). The camera sits in your character's eyes and follows the head, locked to the eyes of the picture that is drawn (also while running, walking, turning and stopping); wherever she faces (walking sideways or back, in a hit or a grab) it stays at her head, looking out of it where you look, and moves with her head: her own turns take at most 30 degrees a frame, so it glides with her head and does not jump on its own (through the game's quick turn it keeps its spot). While you aim it looks where you aim, so a shot hits the dot in the middle; with the 45 Auto and Mark's handgun it sits on the gun's sight line, so the sights line up on the dot (other weapons: from the eyes); a shot's recoil plays in the picture and the view holds still. The right stick turns the view and her with it, so she faces where you look, and looks up and down; the left stick walks her where you look (she turns to its way at most 30 degrees a frame) and never turns the view (the game sees the right stick centred and a press of it (R3) as no ad-lib: no ad-lib lines). Only the right stick turns the view: when the game turns her itself (a door, the d-pad, the quick turn, a hit) the view stays where you look; lowering the weapon, it keeps looking where you aimed. The camera's settings (each view's Forward / Back, Up / Down, Left / Right, Look Up / Down and Field of View) are shown in the camera window (F8) and under Configure, locked: you can see what the camera does, but not change it. F7 switches it off and on.\n\nIt needs the game's mod runtime and a game build with its own code sites (its patches.json: camera.freeze and the marks of the game frame, the pad mapper and the room's draw), which the program compiles in at the first preparation.",
   "game": {
     "id": "resident-evil-outbreak-file-1",
     "revisions": [
@@ -87,7 +87,7 @@
       "min": -25,
       "max": 25,
       "label": "Aiming View: Forward / Back",
-      "description": "While you aim. Moves the camera forward (+) or back (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view is angled from there to line up with the gun's sights."
+      "description": "While you aim. Moves the camera forward (+) or back (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view looks from there where you aim (with the 45 Auto and Mark's handgun the camera steps from there onto the gun's sight line)."
     },
     {
       "key": "aim_up",
@@ -96,7 +96,7 @@
       "min": -25,
       "max": 25,
       "label": "Aiming View: Up / Down",
-      "description": "While you aim. Moves the camera up (+) or down (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view is angled from there to line up with the gun's sights."
+      "description": "While you aim. Moves the camera up (+) or down (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view looks from there where you aim (with the 45 Auto and Mark's handgun the camera steps from there onto the gun's sight line)."
     },
     {
       "key": "aim_right",
@@ -105,7 +105,7 @@
       "min": -25,
       "max": 25,
       "label": "Aiming View: Left / Right",
-      "description": "While you aim. Moves the camera to her right (+) or left (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view is angled from there to line up with the gun's sights."
+      "description": "While you aim. Moves the camera to her right (+) or left (-), in game units (about 1 cm each). 0 = the same eye spot as the normal view; the view looks from there where you aim (with the 45 Auto and Mark's handgun the camera steps from there onto the gun's sight line)."
     },
     {
       "key": "aim_look",
@@ -114,7 +114,7 @@
       "min": -25,
       "max": 25,
       "label": "Aiming View: Look Up / Down",
-      "description": "While you aim. Turns the view up (+) or down (-), in degrees. 0 = lined up with the gun's sights."
+      "description": "While you aim. Turns the view up (+) or down (-), in degrees. 0 = where the shots go."
     },
     {
       "key": "aim_fov",

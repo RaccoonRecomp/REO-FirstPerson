@@ -6,7 +6,7 @@ and aim, and you look around with the right stick.
 
 REO First Person is an original mod, written from scratch on the program's own mod host services.
 
-- Mod id `reo-first-person`, version **1.0.0**.
+- Mod id `reo-first-person`, version **2.6.8**.
 - 12 settings. The camera window and Configure show them, locked: you can see what the camera does, but not change it.
 
 > Unofficial fan project, not affiliated with or endorsed by Capcom. See [Legal](#legal).
@@ -30,7 +30,7 @@ not, checking every site against your own copy. The mod needs no other mod's fil
 
 ## Install
 
-1. Download `reo-first-person-1.0.0.zip` from this repository's **Releases** page (it is also in the
+1. Download `reo-first-person-camera-2.6.8.zip` from this repository's **Releases** page (it is also in the
    [`release`](release) folder). Do not unpack it.
 2. In Resident Evil Outbreak Recompiled, open **Mods**, choose **Install Mods** and pick the zip.
 3. Make sure the mod is switched on in the list, then start the game.
@@ -45,16 +45,27 @@ installed version and moves the old one into `mods\.trash\` (nothing is deleted)
   the eight characters, just in front of the eyes. It follows the head. Movement stays the game's own controls.
   The camera is locked to the eyes of the picture that is drawn: the game draws each picture after it has moved
   her body once more, so the camera follows the head's own motion into that picture (her step, the run's bob, a turn)
-  and stays in the eyes while she runs, walks, turns and stops.
-- **Aiming.** While you aim, the camera stays in the eyes and is angled to line up with the gun's sights (eye, rear
-  sight, front sight), with a small dot in the middle of the screen. Measured sights: the 45 Auto (Kevin's) and the
-  Handgun for Mark; any other weapon is aimed along the character's aim. A shot's recoil and the weapon animations
-  play as the game makes them; the camera stays in the eyes (following the head) and keeps its direction: no step
-  aside.
-- **Right stick.** The right stick looks around from her eyes (left / right up to 60 degrees, up 30, down 60) and the
-  view eases back to where her eyes face when you let go. While the camera is in her eyes the game sees the right stick
-  centred and a press of it (R3) as no ad-lib, so looking around or pressing the stick in says no ad-lib line, and the
-  left stick moves her exactly as without the look.
+  and stays in the eyes while she runs, walks, turns and stops. Wherever she faces - walking sideways or back,
+  turned round by the game, in a hit or a grab - it stays at her head: it is where her eyes are when she turns her
+  head to where you look, looking out of it. It moves with her head: her own turns (to where the left stick
+  walks her, back to where you look when she stands) take at most 30 degrees a frame, and the camera knows each of
+  them before the picture is drawn, so it glides with her head round her feet and does not jump. A turn the game
+  makes at once (a hit, a grab) is followed smoothly; through the game's quick turn the camera keeps its spot until
+  she faces where you look again or walks on.
+- **Aiming.** While you aim, the view looks where the character aims, so a shot hits the small dot in the middle of the
+  screen; with the measured sights - the 45 Auto (Kevin's) and the Handgun for Mark - the camera sits on the gun's
+  sight line, so rear sight and front sight line up on the dot (any other weapon is aimed from the eyes). A shot's
+  recoil and the weapon animations play as the game makes them; the camera stays in the eyes (following the head) and
+  keeps its direction: no step aside. Lowering the weapon, the view keeps looking where you aimed.
+- **Sticks.** The right stick turns the view and her with it, so she always faces where you look (up 30 degrees, down
+  60; nothing eases back), and the left stick walks her where you look - forward, back, left and right of the view -
+  and never turns the view. She turns to the way the left stick walks her, and back to where you look when she
+  stands, at most 30 degrees a game frame (a turn round about 0.2 s; bent far forward a little slower), and goes the
+  way she faces while she turns. Only the right stick turns the view: when the game turns her itself - opening a door,
+  picking something up, the d-pad, the quick turn, a hit or a grab - the view stays where you look, and she faces it
+  again when she stands; a new room starts with the view where she faces. While the camera is in her eyes the game
+  sees the right stick centred and a press of it (R3) as no ad-lib, so turning the view or pressing the stick in says
+  no ad-lib line.
 - **Scripted camera shots** (cutscenes, events): the game's camera takes over; the camera returns into the eyes when
   you move on again (or raise your weapon). Movies, doors, the item screen and the map work as without the mod.
 - Characters right in front of the camera stay drawn while it drives (the game normally hides characters near its
@@ -110,9 +121,9 @@ each character).
 | Normal View | Look Up / Down (`normal_look`) | 0 | -25 to 25 | While you walk and stand: the view turned up (+) or down (-), in degrees. 0 = level ahead. |
 | Normal View | Field of View (`normal_fov`) | 63 | 40 to 90 | While you walk and stand: the vertical field of view, in degrees. |
 | Aiming View | Forward / Back (`aim_forward`) | 2.5 | -25 to 25 | While you aim: forward (+) or back (-) from the same eye spot. |
-| Aiming View | Up / Down (`aim_up`) | 3.5 | -25 to 25 | While you aim: up (+) or down (-). |
-| Aiming View | Left / Right (`aim_right`) | -1 | -25 to 25 | While you aim: to her right (+) or left (-). |
-| Aiming View | Look Up / Down (`aim_look`) | 0 | -25 to 25 | While you aim: the view turned up (+) or down (-), in degrees. 0 = lined up with the gun's sights. |
+| Aiming View | Up / Down (`aim_up`) | 3.5 | -25 to 25 | While you aim: up (+) or down (-) (not with measured sights: the camera is on their line). |
+| Aiming View | Left / Right (`aim_right`) | -1 | -25 to 25 | While you aim: to her right (+) or left (-) (not with measured sights: the camera is on their line). |
+| Aiming View | Look Up / Down (`aim_look`) | 0 | -25 to 25 | While you aim: the view turned up (+) or down (-), in degrees. 0 = where the shots go. |
 | Aiming View | Field of View (`aim_fov`) | 61 | 40 to 90 | While you aim: the vertical field of view, in degrees. |
 
 ## Building from source
